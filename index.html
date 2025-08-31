@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Design My WBS - Beyond Routine -</title>
+    <title>Design My WBS - GitHub対応版 -</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome for icons -->
@@ -192,6 +192,16 @@
             50% { transform: scaleX(1); }
             100% { transform: scaleX(0); }
         }
+
+        /* チャート全体に広がる縦線 */
+        .full-height-today-line {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background-color: rgba(2, 132, 199, 0.4);
+            z-index: 30; /* タイムラインとタスクバーの上に表示 */
+        }
         
     </style>
 </head>
@@ -200,15 +210,17 @@
 
     <!-- メインコンテナ -->
     <div class="container mx-auto p-4 md:p-8">
-        <header class="flex flex-col items-start justify-between">
+        <header class="flex flex-col items-start">
             <h1 class="text-3d md:text-5xl font-extrabold text-gray-900 leading-tight">
                 Design My WBS <span class="subtitle-3d">- Beyond Routine -</span>
             </h1>
             <!-- 「未来をデザインする」という副題のフォントをタスク名と同じにする -->
             <p id="subtitle" class="text-lg font-normal text-gray-500 mt-2 mb-8">未来をデザインする</p>
-            
-            <!-- 日めくりカレンダー形式の日付表示 -->
-            <div class="flex flex-col items-start space-y-1">
+        </header>
+        
+        <!-- 日付表示 - 中央配置に変更 -->
+        <div class="flex justify-center mb-8">
+            <div class="flex flex-col items-center space-y-1">
                 <div class="text-xs font-bold text-gray-600 uppercase tracking-widest">
                     今日は...
                 </div>
@@ -226,7 +238,7 @@
                     </div>
                 </div>
             </div>
-        </header>
+        </div>
 
         <!-- タスク追加ボタン -->
         <div class="my-4 flex justify-end">
@@ -367,20 +379,26 @@
     <!-- Firebase SDK Imports -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, collection, onSnapshot, setDoc, deleteDoc, serverTimestamp, addDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebaseのグローバル変数
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
+        // ここにFirebaseコンソールから取得した設定情報を貼り付けてください
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        const appId = firebaseConfig.appId;
+        
         let app;
         let db;
         let auth;
         let userId = null;
         let isSyncing = false;
-
+        
         // UI要素
         const addTaskBtn = document.getElementById('addTaskBtn');
         const taskModal = document.getElementById('taskModal');
@@ -391,7 +409,7 @@
         const deleteTaskBtn = document.getElementById('deleteTaskBtn');
         const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
         const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
-        
+
         // 日付表示用の新しい要素
         const todayDayElement = document.getElementById('today-day');
         const todayWeekdayElement = document.getElementById('today-weekday');
@@ -410,7 +428,7 @@
         today.setHours(0, 0, 0, 0);
         
         const todayLine = document.createElement('div');
-        todayLine.className = 'today-line';
+        todayLine.className = 'full-height-today-line';
         todayLine.id = 'today-line';
 
         let dragSrcCategoryRow = null;
@@ -462,7 +480,7 @@
             startDate: "2025-09-01",
             endDate: null
         }, {
-Name: "日本がん検診・診断学会（論文投稿）",
+            taskName: "日本がん検診・診断学会（論文投稿）",
             category: "論文投稿",
             startDate: null,
             endDate: "2025-09-30"
@@ -492,27 +510,39 @@ Name: "日本がん検診・診断学会（論文投稿）",
         window.onload = async () => {
             try {
                 loadingContainer.classList.remove('hidden');
-                if (Object.keys(firebaseConfig).length > 0) {
-                    app = initializeApp(firebaseConfig);
-                    db = getFirestore(app);
-                    auth = getAuth(app);
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } else {
-                    console.error("Firebase config is not available. Please configure Firebase.");
-                    ganttChartBody.innerHTML = `<div class="p-4 text-center text-red-500 font-bold">Firebase設定が利用できません。データの永続化機能は無効です。</div>`;
+                
+                // Firebase設定が未入力の場合の処理
+                if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+                    ganttChartBody.innerHTML = `<div class="p-4 text-center text-red-500 font-bold">
+                        Firebase設定が未入力です。データの永続化機能は無効です。
+                        <p class="mt-2 text-sm text-gray-500">
+                            このコードの &lt;script&gt; タグ内にある ` + "`firebaseConfig`" + ` オブジェクトに、
+                            ご自身のFirebaseプロジェクトの設定情報を貼り付けてください。
+                        </p>
+                    </div>`;
                     loadingContainer.classList.add('hidden');
+                    return;
                 }
 
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // 匿名認証でサインイン
+                signInAnonymously(auth).catch((error) => {
+                    console.error("匿名認証エラー:", error);
+                    ganttChartBody.innerHTML = `<div class="p-4 text-center text-red-500 font-bold">認証に失敗しました。</div>`;
+                    loadingContainer.classList.add('hidden');
+                });
+                
                 // 認証状態の監視
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
                         console.log("ユーザーID:", userId);
+                        
                         // 初回ロード時にデータが存在しない場合、初期データをFirestoreに追加
+                        // 注意: ユーザーごとのプライベートなパスを使用します
                         const tasksCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/wbs_tasks`);
                         const snapshot = await getDocs(tasksCollectionRef);
                         if (snapshot.empty) {
@@ -538,6 +568,7 @@ Name: "日本がん検診・診断学会（論文投稿）",
 
         // リアルタイムリスナー
         function startRealtimeListener() {
+            // 注意: ユーザーごとのプライベートなパスを使用します
             const tasksCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/wbs_tasks`);
             const categoryOrderRef = doc(db, `artifacts/${appId}/users/${userId}/config/categoryOrder`);
 
@@ -580,6 +611,7 @@ Name: "日本がん検診・診断学会（論文投稿）",
 
         // カテゴリの並べ替え順序をFirestoreに保存
         async function saveCategoryOrder(order) {
+            // 注意: ユーザーごとのプライベートなパスを使用します
             const categoryOrderRef = doc(db, `artifacts/${appId}/users/${userId}/config/categoryOrder`);
             try {
                 await setDoc(categoryOrderRef, { order });
@@ -835,6 +867,7 @@ Name: "日本がん検診・診断学会（論文投稿）",
                 updatedAt: serverTimestamp()
             };
 
+            // 注意: ユーザーごとのプライベートなパスを使用します
             const tasksCollection = collection(db, `artifacts/${appId}/users/${userId}/wbs_tasks`);
 
             try {
@@ -864,6 +897,7 @@ Name: "日本がん検診・診断学会（論文投稿）",
         // 削除確認ボタンクリック
         confirmDeleteBtn.addEventListener('click', async () => {
             const taskId = document.getElementById('taskId').value;
+            // 注意: ユーザーごとのプライベートなパスを使用します
             const tasksCollection = collection(db, `artifacts/${appId}/users/${userId}/wbs_tasks`);
             try {
                 await deleteDoc(doc(tasksCollection, taskId));
